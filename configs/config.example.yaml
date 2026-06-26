@@ -12,13 +12,18 @@ paths:
   reports: reports/figures
 
 data:
-  train_file: null
-  test_file: null
-  target_column: null
+  raw_file: SLV2013_Public_Use.csv
+  target_imc: IMC
+  target_mental_health: Riesgo_Salud_Mental
 
 model:
-  name: null
-  hyperparameters: {}
+  regression:
+    - linear_regression
+    - random_forest
+  classification:
+    - logistic_regression
+    - random_forest
+    - xgboost
 
 training:
   test_size: 0.2

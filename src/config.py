@@ -12,6 +12,37 @@ from dotenv import load_dotenv
 __version__ = "0.1.0"
 DEFAULT_RANDOM_SEED = 42
 
+# Valor centinela de SPSS/Stata para datos faltantes en encuestas GSHS.
+MISSING_SENTINEL = 1.79769313486232e308
+
+# Archivo principal del desafío.
+DEFAULT_RAW_FILENAME = "SLV2013_Public_Use.csv"
+
+# Variables objetivo.
+TARGET_IMC = "IMC"
+TARGET_MENTAL_HEALTH = "Riesgo_Salud_Mental"
+
+# Columnas con información directa de peso/altura (data leakage para regresión IMC).
+LEAKAGE_COLUMNS = [
+    "Q4",  # estatura (m)
+    "Q5",  # peso (kg)
+    "qnowtg",
+    "qnobeseg",
+    "qnunwtg",
+    "weight",
+]
+
+# Variables de diseño muestral (no predictores).
+SURVEY_DESIGN_COLUMNS = ["stratum", "psu"]
+
+# Ideación suicida seria (GSHS Q25 / QN25: 1=Sí, 2=No).
+MENTAL_HEALTH_PRIMARY_COL = "QN25"
+MENTAL_HEALTH_FALLBACK_COL = "QN21"
+
+# Rango clínico razonable de IMC para adolescentes (filtrado de outliers).
+IMC_MIN = 10.0
+IMC_MAX = 50.0
+
 
 @dataclass(frozen=True)
 class ProjectPaths:
@@ -70,3 +101,19 @@ def load_config() -> dict[str, Any]:
     config_path = get_config_path()
     with config_path.open(encoding="utf-8") as f:
         return yaml.safe_load(f) or {}
+
+
+def get_random_seed() -> int:
+    """Devuelve la semilla aleatoria configurada."""
+    config = load_config()
+    return int(config.get("project", {}).get("random_seed", DEFAULT_RANDOM_SEED))
+
+
+def get_qn_columns() -> list[str]:
+    """Lista de columnas QN recodificadas disponibles en el dataset GSHS."""
+    return [f"QN{i}" for i in range(6, 59)]
+
+
+def get_excluded_feature_columns() -> list[str]:
+    """Columnas que nunca deben usarse como features."""
+    return LEAKAGE_COLUMNS + SURVEY_DESIGN_COLUMNS + [TARGET_IMC, TARGET_MENTAL_HEALTH]
