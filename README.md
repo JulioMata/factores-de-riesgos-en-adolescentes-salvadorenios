@@ -1,5 +1,6 @@
 # Sistema de Predicción de Factores de Riesgo en Adolescentes Salvadoreños (GSHS 2013)
 
+Pipeline de Machine Learning para el desafío UES/MINSAL sobre la Encuesta Global de Salud Escolar (GSHS) 2013 de El Salvador.
 
 ## Requisitos
 
@@ -8,91 +9,95 @@
 
 ## Setup rápido
 
-Desde la raíz del proyecto:
-
 ```powershell
 .\scripts\setup.ps1
-```
-
-El script crea `.venv`, instala dependencias, registra el kernel de Jupyter **Python (fras)** y configura `PYTHONPATH` para importar módulos desde `src/`.
-
-## Setup manual
-
-```powershell
-python -m venv .venv
 .\.venv\Scripts\Activate.ps1
-python -m pip install --upgrade pip
-pip install -r requirements.txt
-pip install -r requirements-dev.txt
-python -m ipykernel install --user --name fras --display-name "Python (fras)"
 $env:PYTHONPATH = "$PWD\src"
+pip install -r requirements.txt
 ```
 
-Copia la configuración de ejemplo si aún no tienes una local:
+Coloca el dataset en `data/raw/SLV2013_Public_Use.csv`.
+
+## Ejecución del pipeline
 
 ```powershell
-Copy-Item configs\config.example.yaml configs\config.yaml
-Copy-Item .env.example .env
+# Pipeline completo (EDA + entrenamiento + figuras + métricas)
+python scripts/train.py
+
+# Sin ajuste de hiperparámetros (más rápido)
+python scripts/train.py --skip-tuning
 ```
+
+**Salidas generadas:**
+- `data/processed/gshs_processed.csv` — datos limpios con IMC y Riesgo_Salud_Mental
+- `models/regression_imc.joblib` — mejor modelo de regresión
+- `models/classification_mental_health.joblib` — mejor modelo de clasificación
+- `reports/figures/` — visualizaciones EDA y de evaluación
+- `reports/metrics.json` — métricas consolidadas
+
+## Notebook de exploración
+
+```powershell
+jupyter lab notebooks/01_eda_modelado.ipynb
+```
+
+Kernel: **Python (fras)**
 
 ## Estructura del proyecto
 
 ```
 fras/
-├── configs/          # Configuración YAML
-├── data/
-│   ├── raw/          # Datos originales (no versionados)
-│   ├── interim/      # Datos intermedios
-│   ├── processed/    # Datos listos para modelado
-│   └── external/     # Fuentes externas
-├── notebooks/        # Libretas Jupyter
-├── src/              # Código fuente
-│   ├── config.py     # Configuración y rutas
-│   ├── data/         # Carga y preprocesamiento
-│   ├── features/     # Feature engineering
-│   ├── models/       # Entrenamiento e inferencia
-│   └── visualization/# Gráficos
-├── models/           # Artefactos entrenados (.joblib, .pkl)
-├── reports/figures/  # Figuras generadas
-├── scripts/          # Scripts de utilidad y CLI
-└── tests/            # Tests
+├── configs/              # Configuración YAML
+├── data/raw/             # SLV2013_Public_Use.csv
+├── data/processed/       # Datos procesados
+├── notebooks/            # 01_eda_modelado.ipynb
+├── src/
+│   ├── config.py         # Constantes (centinela, targets, leakage)
+│   ├── data/             # Carga y preprocesamiento
+│   ├── features/         # Feature engineering (QN, sin leakage)
+│   ├── models/           # Entrenamiento, evaluación, inferencia
+│   └── visualization/    # Gráficos EDA y evaluación
+├── models/               # Artefactos .joblib
+├── reports/
+│   ├── figures/          # Figuras PNG
+│   ├── metrics.json
+│   └── informe_ieee/     # Informe técnico IEEE (LaTeX)
+├── scripts/train.py      # CLI del pipeline
+└── tests/                # Tests unitarios
 ```
 
-## Flujo de trabajo sugerido
+## Tareas del desafío
 
-1. **Exploración** — Crea libretas en `notebooks/` para analizar datos.
-2. **Código reutilizable** — Mueve la lógica estable a `src/`.
-3. **Entrenamiento** — Ejecuta el pipeline desde `scripts/train.py`.
-4. **Artefactos** — Guarda modelos en `models/` y figuras en `reports/figures/`.
+| Tarea | Target | Modelos | Métricas |
+|-------|--------|---------|----------|
+| A — Regresión IMC | `IMC = Q5 / Q4²` | Linear Regression, Random Forest | RMSE, R², residuos |
+| B — Clasificación | `Riesgo_Salud_Mental` (QN25) | Logistic Regression, RF+SMOTE, XGBoost | F1 minoritaria, AUC-ROC |
 
-## Importar el paquete
+## Informe IEEE
 
-Con `PYTHONPATH` apuntando a `src/` (lo hace `setup.ps1`):
+El informe técnico para el Ministro de Salud está en `reports/informe_ieee/informe.tex`.
 
-```python
-from config import get_project_paths, load_config
-from data.load import load_raw_data
+```powershell
+cd reports/informe_ieee
+pdflatex informe.tex
+pdflatex informe.tex
 ```
+
+Requiere una distribución LaTeX con `IEEEtran` y soporte UTF-8.
 
 ## Comandos útiles
 
 ```powershell
-# Activar entorno
-.\.venv\Scripts\Activate.ps1
-$env:PYTHONPATH = "$PWD\src"
-
-# JupyterLab
-jupyter lab
-
-# Tests
 pytest
-
-# Lint
 ruff check src tests
-
-# Entrenamiento (stub)
-python scripts/train.py
 ```
+
+## Decisiones técnicas clave
+
+1. **Centinela SPSS** (`1.79e+308`) → `np.nan` al cargar
+2. **Sin data leakage**: Q4, Q5 excluidos de features de regresión IMC
+3. **QN vs Q**: se usan recodificaciones QN para evitar colinealidad
+4. **Desbalance**: `class_weight='balanced'` + SMOTE; F1 minoritaria como métrica principal
 
 ## Licencia
 
