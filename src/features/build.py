@@ -8,6 +8,7 @@ import pandas as pd
 from sklearn.compose import ColumnTransformer
 from sklearn.impute import SimpleImputer
 from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import OneHotEncoder
 from sklearn.preprocessing import RobustScaler
 
 from config import (
@@ -183,9 +184,17 @@ def build_preprocessor(feature_columns: list[str]) -> ColumnTransformer:
         ]
     )
 
+    categorical_pipeline = Pipeline(
+        steps=[
+            ("imputer", SimpleImputer(strategy="most_frequent")), # Imputación por moda
+            ("onehot", OneHotEncoder(handle_unknown="ignore", drop="first")), # Codificación
+        ]
+    )
+
     return ColumnTransformer(
         transformers=[
-            ("num", numeric_pipeline, feature_columns),
+            ("num", numeric_pipeline, numeric_cols),
+            ("cat", categorical_pipeline, categorical_cols), # <-- Procesa Q1 y Q2 con One-Hot
         ],
         remainder="drop",
     )
